@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Etsy Cost</title>
+  <style>
+    body { font-family: Arial,sans-serif; background: #f4f4f4; margin:0; padding:0; }
+    .container { max-width:700px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1);}
+    h1,h3{text-align:center;}
+    input, button { margin:5px; padding:8px; border-radius:4px; }
+    button { cursor:pointer;}
+    .history-item { cursor:pointer; padding:5px; border-bottom:1px solid #ccc;}
+    .history-item:hover { background:#eee;}
+    .fees-display p{margin:4px 0;}
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Etsy Cost</h1>
+
+  <div>
+    <input type="number" id="salePrice" placeholder="Ürün Fiyatı">
+    <input type="number" id="shippingCost" placeholder="Kargo">
+    <input type="number" id="productCost" placeholder="Ürün Maliyeti">
+    <br>
+    <label><input type="checkbox" id="offsiteAds"> Offsite Ads</label>
+    <label><input type="checkbox" id="usCustoms"> ABD Gümrük</label>
+    <br>
+    <label>Döviz Kuru (USD/TRY):</label>
+    <input type="number" id="exchangeRate" value="41.50">
+    <button onclick="calculateProfit()">Hesapla</button>
+  </div>
+
+  <div class="fees-display" id="feesDisplay"></div>
+  <h3 id="netProfit"></h3>
+
+  <div class="history" id="history"></div>
+</div>
+
+<script>
+function calculateProfit() {
+  const sp = parseFloat(document.getElementById('salePrice').value) || 0;
+  const sc = parseFloat(document.getElementById('shippingCost').value) || 0;
+  const pc = parseFloat(document.getElementById('productCost').value) || 0;
+  const offsite = document.getElementById('offsiteAds').checked;
+  const customs = document.getElementById('usCustoms').checked;
+
+  const listingFee = 0.2;
+  const transactionFee = sp * 0.065;
+  const paymentProcessingFee = sp * 0.03 + 0.25;
+  const offsiteFee = offsite ? sp*0.15 : 0;
+  const currencyConversionFee = sp*0.025;
+  const customsFee = customs ? sp*0.15 : 0;
+
+  const totalCosts = listingFee + transactionFee + paymentProcessingFee + offsiteFee + currencyConversionFee + customsFee + pc + sc;
+  const netProfit = sp - totalCosts;
+
+  const feesDisplay = document.getElementById('feesDisplay');
+  feesDisplay.innerHTML = `
+    <p>Listing Fee: $${listingFee.toFixed(2)}</p>
+    <p>Transaction Fee: $${transactionFee.toFixed(2)}</p>
+    <p>Payment Processing Fee: $${paymentProcessingFee.toFixed(2)}</p>
+    ${offsite ? `<p>Offsite Ads Fee: $${offsiteFee.toFixed(2)}</p>` : ''}
+    <p>Currency Conversion Fee: $${currencyConversionFee.toFixed(2)}</p>
+    ${customs ? `<p>US Customs Fee: $${customsFee.toFixed(2)}</p>` : ''}
+    <p>Toplam Masraflar: $${totalCosts.toFixed(2)}</p>
+  `;
+  document.getElementById('netProfit').innerText = `Net Kar: $${netProfit.toFixed(2)}`;
+
+  // Geçmişi kaydet
+  const historyArr = JSON.parse(localStorage.getItem('etsyHistory') || '[]');
+  historyArr.unshift({date:new Date().toLocaleString(), netProfit: netProfit.toFixed(2)});
+  localStorage.setItem('etsyHistory', JSON.stringify(historyArr.slice(0,20)));
+  renderHistory();
+}
+
+function renderHistory() {
+  const historyArr = JSON.parse(localStorage.getItem('etsyHistory') || '[]');
+  const historyDiv = document.getElementById('history');
+  historyDiv.innerHTML = '<h3>Geçmiş Hesaplamalar</h3>' + historyArr.map(h=>`<div class="history-item">${h.date} - Net Kar: $${h.netProfit}</div>`).join('');
+}
+
+renderHistory();
+</script>
+</body>
+</html>
