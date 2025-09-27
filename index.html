@@ -1,87 +1,211 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Etsy Cost</title>
-  <style>
-    body { font-family: Arial,sans-serif; background: #f4f4f4; margin:0; padding:0; }
-    .container { max-width:700px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1);}
-    h1,h3{text-align:center;}
-    input, button { margin:5px; padding:8px; border-radius:4px; }
-    button { cursor:pointer;}
-    .history-item { cursor:pointer; padding:5px; border-bottom:1px solid #ccc;}
-    .history-item:hover { background:#eee;}
-    .fees-display p{margin:4px 0;}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Etsy Cost</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:0;}
+.container{width:100%;max-width:700px;margin:20px auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);}
+h1{text-align:center;color:#333;}
+label{display:block;margin:10px 0 5px;color:#555;}
+input[type=number]{width:100%;padding:8px;margin:5px 0 10px;border:1px solid #ccc;border-radius:4px;}
+input[type=checkbox]{margin-right:10px;}
+button{width:100%;padding:10px;background:#4CAF50;color:white;border:none;border-radius:4px;cursor:pointer;margin:5px 0;}
+button:hover{background:#45a049;}
+.result{margin-top:20px;padding:10px;background:#e9e9e9;border-radius:4px;}
+.result p{margin:5px 0;}
+select{width:100%;padding:8px;margin:5px 0 10px;border:1px solid #ccc;border-radius:4px;}
+.history{margin-top:15px;padding:10px;background:#f0f0f0;border-radius:4px; max-height:200px; overflow-y:auto;}
+.history-item{padding:5px;border-bottom:1px solid #ccc;cursor:pointer;}
+.history-item:hover{background:#ddd;}
+</style>
 </head>
 <body>
+
 <div class="container">
   <h1>Etsy Cost</h1>
 
-  <div>
-    <input type="number" id="salePrice" placeholder="Ürün Fiyatı">
-    <input type="number" id="shippingCost" placeholder="Kargo">
-    <input type="number" id="productCost" placeholder="Ürün Maliyeti">
-    <br>
-    <label><input type="checkbox" id="offsiteAds"> Offsite Ads</label>
-    <label><input type="checkbox" id="usCustoms"> ABD Gümrük</label>
-    <br>
-    <label>Döviz Kuru (USD/TRY):</label>
-    <input type="number" id="exchangeRate" value="41.50">
-    <button onclick="calculateProfit()">Hesapla</button>
-  </div>
+  <label>Preset Seç:</label>
+  <select id="presetSelect" onchange="loadPreset()">
+    <option value="">-- Preset Seç --</option>
+  </select>
 
-  <div class="fees-display" id="feesDisplay"></div>
-  <h3 id="netProfit"></h3>
+  <label>Ürün Satış Fiyatı (USD):</label>
+  <input type="number" id="salePrice" placeholder="Örneğin: 100">
 
+  <label>Kargo Ücreti (USD):</label>
+  <input type="number" id="shippingCost" placeholder="Örneğin: 20">
+
+  <label>Ürün Maliyeti (USD):</label>
+  <input type="number" id="productCost" placeholder="Örneğin: 40">
+
+  <label><input type="checkbox" id="offsiteAds">Offsite Ads Kullanıyor Musunuz?</label>
+  <label><input type="checkbox" id="usCustoms">ABD Gümrük Vergisi Uygula?</label>
+
+  <label>USD/TRY Kuru (manuel girin veya otomatik al):</label>
+  <input type="number" id="exchangeRate" placeholder="Örn: 41.42" step="0.01">
+  <button onclick="getExchangeRate()">Otomatik Kur Al</button>
+
+  <button onclick="savePreset()">Preset Kaydet</button>
+  <button onclick="calculateProfit()">Hesapla</button>
+
+  <div class="result" id="result"></div>
+
+  <h3>Geçmiş Hesaplamalar</h3>
   <div class="history" id="history"></div>
+  <button onclick="clearHistory()">Geçmişi Temizle</button>
 </div>
 
 <script>
-function calculateProfit() {
-  const sp = parseFloat(document.getElementById('salePrice').value) || 0;
-  const sc = parseFloat(document.getElementById('shippingCost').value) || 0;
-  const pc = parseFloat(document.getElementById('productCost').value) || 0;
-  const offsite = document.getElementById('offsiteAds').checked;
-  const customs = document.getElementById('usCustoms').checked;
+// Preset Fonksiyonları
+function savePreset() {
+  const salePrice = document.getElementById('salePrice').value;
+  const shippingCost = document.getElementById('shippingCost').value;
+  const productCost = document.getElementById('productCost').value;
+  const offsiteAds = document.getElementById('offsiteAds').checked;
+  const usCustoms = document.getElementById('usCustoms').checked;
+  const exchangeRate = document.getElementById('exchangeRate').value;
 
-  const listingFee = 0.2;
-  const transactionFee = sp * 0.065;
-  const paymentProcessingFee = sp * 0.03 + 0.25;
-  const offsiteFee = offsite ? sp*0.15 : 0;
-  const currencyConversionFee = sp*0.025;
-  const customsFee = customs ? sp*0.15 : 0;
+  if (!salePrice || !exchangeRate) { alert('Satış fiyatı ve döviz kuru girin'); return; }
 
-  const totalCosts = listingFee + transactionFee + paymentProcessingFee + offsiteFee + currencyConversionFee + customsFee + pc + sc;
-  const netProfit = sp - totalCosts;
+  let presets = JSON.parse(localStorage.getItem('etsyPresets') || '[]');
+  const presetName = prompt("Preset adı girin:");
+  if(!presetName) return;
+  presets.push({name: presetName, salePrice, shippingCost, productCost, offsiteAds, usCustoms, exchangeRate});
+  localStorage.setItem('etsyPresets', JSON.stringify(presets));
+  updatePresetSelect();
+}
 
-  const feesDisplay = document.getElementById('feesDisplay');
-  feesDisplay.innerHTML = `
-    <p>Listing Fee: $${listingFee.toFixed(2)}</p>
-    <p>Transaction Fee: $${transactionFee.toFixed(2)}</p>
-    <p>Payment Processing Fee: $${paymentProcessingFee.toFixed(2)}</p>
-    ${offsite ? `<p>Offsite Ads Fee: $${offsiteFee.toFixed(2)}</p>` : ''}
-    <p>Currency Conversion Fee: $${currencyConversionFee.toFixed(2)}</p>
-    ${customs ? `<p>US Customs Fee: $${customsFee.toFixed(2)}</p>` : ''}
-    <p>Toplam Masraflar: $${totalCosts.toFixed(2)}</p>
-  `;
-  document.getElementById('netProfit').innerText = `Net Kar: $${netProfit.toFixed(2)}`;
+function updatePresetSelect() {
+  const select = document.getElementById('presetSelect');
+  select.innerHTML = '<option value="">-- Preset Seç --</option>';
+  const presets = JSON.parse(localStorage.getItem('etsyPresets') || '[]');
+  presets.forEach((p,i)=>{
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.text = p.name;
+    select.appendChild(opt);
+  });
+}
 
-  // Geçmişi kaydet
-  const historyArr = JSON.parse(localStorage.getItem('etsyHistory') || '[]');
-  historyArr.unshift({date:new Date().toLocaleString(), netProfit: netProfit.toFixed(2)});
-  localStorage.setItem('etsyHistory', JSON.stringify(historyArr.slice(0,20)));
+function loadPreset() {
+  const idx = document.getElementById('presetSelect').value;
+  if(idx === "") return;
+  const preset = JSON.parse(localStorage.getItem('etsyPresets') || '[]')[idx];
+  document.getElementById('salePrice').value = preset.salePrice;
+  document.getElementById('shippingCost').value = preset.shippingCost;
+  document.getElementById('productCost').value = preset.productCost;
+  document.getElementById('offsiteAds').checked = preset.offsiteAds;
+  document.getElementById('usCustoms').checked = preset.usCustoms;
+  document.getElementById('exchangeRate').value = preset.exchangeRate;
+}
+
+// Geçmiş Fonksiyonları
+function addHistory(entry) {
+  let history = JSON.parse(localStorage.getItem('etsyHistory') || '[]');
+  history.unshift(entry);
+  if(history.length > 20) history.pop(); 
+  localStorage.setItem('etsyHistory', JSON.stringify(history));
   renderHistory();
 }
 
 function renderHistory() {
-  const historyArr = JSON.parse(localStorage.getItem('etsyHistory') || '[]');
   const historyDiv = document.getElementById('history');
-  historyDiv.innerHTML = '<h3>Geçmiş Hesaplamalar</h3>' + historyArr.map(h=>`<div class="history-item">${h.date} - Net Kar: $${h.netProfit}</div>`).join('');
+  const history = JSON.parse(localStorage.getItem('etsyHistory') || '[]');
+  historyDiv.innerHTML = '';
+  history.forEach((h,i)=>{
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.textContent = `${h.date} - Net Kar: $${h.netProfit.toFixed(2)} / ₺${h.netProfitTRY.toFixed(2)}`;
+    div.onclick = () => {
+      document.getElementById('salePrice').value = h.salePrice;
+      document.getElementById('shippingCost').value = h.shippingCost;
+      document.getElementById('productCost').value = h.productCost;
+      document.getElementById('offsiteAds').checked = h.offsiteAds;
+      document.getElementById('usCustoms').checked = h.usCustoms;
+      document.getElementById('exchangeRate').value = h.exchangeRate;
+    }
+    historyDiv.appendChild(div);
+  });
 }
 
+function clearHistory() {
+  localStorage.removeItem('etsyHistory');
+  renderHistory();
+}
+
+// Hesaplama Fonksiyonu
+function calculateProfit() {
+  const salePrice = parseFloat(document.getElementById('salePrice').value) || 0;
+  const shippingCost = parseFloat(document.getElementById('shippingCost').value) || 0;
+  const productCost = parseFloat(document.getElementById('productCost').value) || 0;
+  const offsiteAds = document.getElementById('offsiteAds').checked;
+  const usCustoms = document.getElementById('usCustoms').checked;
+  const exchangeRate = parseFloat(document.getElementById('exchangeRate').value) || 1;
+
+  if(!salePrice || !exchangeRate){ alert("Satış fiyatı ve USD/TRY kuru girin."); return; }
+
+  const listingFee = 0.20;
+  const transactionFee = salePrice * 0.065;
+  const paymentProcessingFee = salePrice * 0.03 + 0.25;
+  const offsiteAdsFee = offsiteAds ? salePrice * 0.15 : 0;
+  const currencyConversionFee = salePrice * 0.025;
+  const usCustomsFee = usCustoms ? salePrice * 0.15 : 0;
+
+  const totalFees = listingFee + transactionFee + paymentProcessingFee + offsiteAdsFee + currencyConversionFee + usCustomsFee;
+  const totalCosts = totalFees + productCost + shippingCost;
+  const netProfit = salePrice - totalCosts;
+  const profitMargin = (netProfit / salePrice) * 100;
+  const netProfitTRY = netProfit * exchangeRate;
+  const totalCostsTRY = totalCosts * exchangeRate;
+
+  const resultHTML = `
+    <p><strong>Toplam Masraflar (USD):</strong> $${totalCosts.toFixed(2)}</p>
+    <p><strong>Net Kar (USD):</strong> $${netProfit.toFixed(2)}</p>
+    <p><strong>Kar Marjı (%):</strong> ${profitMargin.toFixed(2)}%</p>
+    <p><strong>Toplam Masraflar (TRY):</strong> ₺${totalCostsTRY.toFixed(2)}</p>
+    <p><strong>Net Kar (TRY):</strong> ₺${netProfitTRY.toFixed(2)}</p>
+    <p><em>USD/TRY kuru: ${exchangeRate}</em></p>
+  `;
+  document.getElementById('result').innerHTML = resultHTML;
+
+  addHistory({
+    date: new Date().toLocaleString(),
+    salePrice,
+    shippingCost,
+    productCost,
+    offsiteAds,
+    usCustoms,
+    exchangeRate,
+    netProfit,
+    netProfitTRY
+  });
+}
+
+// Otomatik Döviz Kuru Fonksiyonu
+async function getExchangeRate() {
+  const input = document.getElementById('exchangeRate');
+  input.value = "Yükleniyor...";
+  try {
+    const res = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=TRY');
+    const data = await res.json();
+    if(data && data.rates && data.rates.TRY){
+      input.value = data.rates.TRY.toFixed(2);
+    } else {
+      alert('Döviz kuru alınamadı, lütfen manuel girin.');
+      input.value = "";
+    }
+  } catch(e){
+    alert('Döviz kuru alınamadı, lütfen manuel girin.');
+    input.value = "";
+  }
+}
+
+// Init
+updatePresetSelect();
 renderHistory();
 </script>
+
 </body>
 </html>
